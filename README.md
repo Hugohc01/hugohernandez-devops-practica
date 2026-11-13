@@ -138,16 +138,16 @@ Pasos de prueba con el contenedor en marcha:
 
 ### Publicar y descargar la imagen (Docker Hub)
 
-La imagen está publicada en Docker Hub como `<hugohc01>/tienda-api`.
+La imagen está publicada en Docker Hub como `hugohc01/tienda-api`.
 
 ```bash
 # Publicar (tras docker login)
-docker tag tienda-api:1.0 <hugohc01>/tienda-api:1.0
-docker tag tienda-api:1.0 <hugohc01>/tienda-api:latest
-docker push <hugohc01>/tienda-api:1.0
-docker push <hugohc01>/tienda-api:latest
+docker tag tienda-api:1.0 hugohc01/tienda-api:1.0
+docker tag tienda-api:1.0 hugohc01/tienda-api:latest
+docker push hugohc01/tienda-api:1.0
+docker push hugohc01/tienda-api:latest
 
 # Descargar y ejecutar en cualquier equipo con Docker
-docker pull <hugohc01>/tienda-api:1.0
-docker run --rm -p 8000:8000 <hugohc01>/tienda-api:1.0
+docker pull hugohc01/tienda-api:1.0
+docker run --rm -p 8000:8000 hugohc01/tienda-api:1.0
 ```
