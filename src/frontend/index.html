@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tienda online · Panel</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #fffdf8;
+    --ink: #1f2421;
+    --muted: #6b6f68;
+    --line: #ddd7ca;
+    --accent: #1f6f5c;
+    --accent-ink: #ffffff;
+    --danger: #b3412f;
+    --ok: #2f7d3a;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center;
+    justify-content: space-between; padding: 18px 24px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  header h1 span { color: var(--accent); }
+  .conexion { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .conexion input { width: 240px; }
+  .estado { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .punto { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .estado.ok .punto { background: var(--ok); }
+  .estado.error .punto { background: var(--danger); }
+
+  main {
+    display: grid; gap: 20px; padding: 24px; max-width: 1200px; margin: 0 auto;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } }
+  section {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  section.ancha { grid-column: 1 / -1; }
+  h2 { margin: 0 0 4px; font-size: 16px; }
+  .endpoint { font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin: 0 0 14px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tabla-scroll { overflow-x: auto; }
+  .chip { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 99px; background: #ece6d8; }
+  .chip.admin { background: #f3dcd5; }
+  .extra { color: var(--muted); font-size: 13px; }
+  .vacio { color: var(--muted); font-style: italic; padding: 10px 0; }
+
+  form { display: grid; gap: 10px; }
+  .fila { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select, button {
+    font: inherit; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); min-width: 0;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { cursor: pointer; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.secundario { background: transparent; color: var(--accent); }
+  button.peligro { background: transparent; color: var(--danger); border-color: transparent; padding: 4px 8px; }
+  button.peligro:hover { border-color: var(--danger); }
+
+  .linea { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; }
+  .total { font-weight: 600; text-align: right; }
+
+  .pedido { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+  .pedido-cab { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+  .pedido ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+
+  #toast {
+    position: fixed; right: 20px; bottom: 20px; max-width: 380px; padding: 12px 16px;
+    border-radius: 8px; color: #fff; background: var(--ink); box-shadow: 0 6px 20px rgba(0,0,0,.18);
+    opacity: 0; transform: translateY(10px); transition: .2s; pointer-events: none; font-size: 14px;
+  }
+  #toast.visible { opacity: 1; transform: none; }
+  #toast.error { background: var(--danger); }
+  #toast.ok { background: var(--ok); }
+  @media (max-width: 500px) {
+    main { padding: 16px; }
+    header { padding: 14px 16px; }
+    .conexion input { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Tienda <span>online</span></h1>
+  <div class="conexion">
+    <label for="baseUrl" style="display:inline">API</label>
+    <input id="baseUrl" value="http://localhost:8000">
+    <button id="btnConectar" class="secundario">Conectar</button>
+    <span id="estado" class="estado"><span class="punto"></span><span id="estadoTxt">Sin conectar</span></span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ PRODUCTOS ============ -->
+  <section class="ancha">
+    <h2>Productos</h2>
+    <p class="endpoint">GET /productos · POST /productos · DELETE /productos/{id}</p>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Detalles</th><th class="num">Precio</th><th class="num">Stock</th><th></th></tr></thead>
+        <tbody id="tablaProductos"></tbody>
+      </table>
+    </div>
+
+    <h3>Nuevo producto</h3>
+    <form id="formProducto">
+      <div class="fila">
+        <label>Tipo
+          <select name="tipo" id="tipoProducto">
+            <option value="generico">Genérico</option>
+            <option value="electronico">Electrónico</option>
+            <option value="ropa">Ropa</option>
+          </select>
+        </label>
+        <label>Nombre <input name="nombre" required></label>
+        <label>Precio (€) <input name="precio" type="number" step="0.01" min="0.01" required></label>
+        <label>Stock <input name="stock" type="number" min="0" step="1" required></label>
+        <label class="solo-electronico" hidden>Meses garantía <input name="meses_garantia" type="number" min="0" step="1"></label>
+        <label class="solo-ropa" hidden>Talla
+          <select name="talla">
+            <option>XS</option><option>S</option><option selected>M</option>
+            <option>L</option><option>XL</option><option>XXL</option>
+          </select>
+        </label>
+        <label class="solo-ropa" hidden>Color <input name="color"></label>
+      </div>
+      <div><button type="submit">Crear producto</button></div>
+    </form>
+  </section>
+
+  <!-- ============ USUARIOS ============ -->
+  <section>
+    <h2>Usuarios</h2>
+    <p class="endpoint">GET /usuarios · POST /usuarios</p>
+    <div class="tabla-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th></tr></thead>
+        <tbody id="tablaUsuarios"></tbody>
+      </table>
+    </div>
+
+    <h3>Nuevo usuario</h3>
+    <form id="formUsuario">
+      <div class="fila">
+        <label>Nombre <input name="nombre" required></label>
+        <label>Email <input name="email" type="email" required></label>
+      </div>
+      <div class="fila">
+        <label>Tipo
+          <select name="tipo" id="tipoUsuario">
+            <option value="cliente">Cliente</option>
+            <option value="administrador">Administrador</option>
+          </select>
+        </label>
+        <label id="campoDireccion">Dirección postal <input name="direccion_postal"></label>
+        <label id="campoClaveAdmin" hidden>Clave de administrador <input name="clave_admin" type="password" autocomplete="off"></label>
+      </div>
+      <div><button type="submit">Crear usuario</button></div>
+    </form>
+  </section>
+
+  <!-- ============ NUEVO PEDIDO ============ -->
+  <section>
+    <h2>Nuevo pedido</h2>
+    <p class="endpoint">POST /pedidos</p>
+    <form id="formPedido">
+      <label>Cliente <select id="pedidoCliente" required></select></label>
+      <div id="lineasPedido" style="display:grid; gap:8px"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+        <button type="button" class="secundario" id="btnAnadirLinea">+ Añadir producto</button>
+        <span class="total" id="totalPedido">Total: 0,00 €</span>
+      </div>
+      <div><button type="submit">Realizar pedido</button></div>
+    </form>
+  </section>
+
+  <!-- ============ PEDIDOS DE UN USUARIO ============ -->
+  <section class="ancha">
+    <h2>Pedidos de un usuario</h2>
+    <p class="endpoint">GET /usuarios/{id}/pedidos</p>
+    <div class="fila" style="max-width:420px; margin-bottom:14px">
+      <label>Usuario <select id="consultaUsuario"></select></label>
+    </div>
+    <div id="listaPedidos"><p class="vacio">Selecciona un usuario.</p></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   1. COMUNICACIÓN CON LA API
+   ---------------------------------------------------------------------
+   Todas las peticiones HTTP pasan por la función `api()`, que usa fetch:
+     - construye la URL a partir de BASE_URL + ruta del endpoint,
+     - envía el cuerpo en JSON cuando hay datos (POST),
+     - comprueba el código de estado (response.ok => 2xx),
+     - si hay error, lee el campo "detail" que devuelve FastAPI,
+     - si todo va bien, devuelve el JSON ya convertido a objeto JS.
+   ===================================================================== */
+let BASE_URL = "http://localhost:8000";
+try { BASE_URL = localStorage.getItem("baseUrl") || BASE_URL; } catch (_) {}
+
+async function api(metodo, ruta, datos, cabecerasExtra = {}) {
+  const opciones = { method: metodo, headers: { ...cabecerasExtra } };
+  if (datos !== undefined) {
+    opciones.headers["Content-Type"] = "application/json";
+    opciones.body = JSON.stringify(datos);
+  }
+
+  let respuesta;
+  try {
+    respuesta = await fetch(BASE_URL + ruta, opciones);
+  } catch (e) {
+    throw new Error("No se puede conectar con " + BASE_URL);
+  }
+
+  if (!respuesta.ok) {
+    let mensaje = `Error ${respuesta.status}`;
+    try {
+      const cuerpo = await respuesta.json();
+      // FastAPI: "detail" es un texto (HTTPException) o una lista (error 422 de validación)
+      if (typeof cuerpo.detail === "string") mensaje += ": " + cuerpo.detail;
+      else if (Array.isArray(cuerpo.detail)) mensaje += ": " + cuerpo.detail.map(d => d.msg).join("; ");
+    } catch (_) {}
+    throw new Error(mensaje);
+  }
+
+  if (respuesta.status === 204) return null;   // DELETE no devuelve contenido
+  return respuesta.json();
+}
+
+// Funciones con el endpoint concreto que usa cada operación
+const Tienda = {
+  listarProductos:  ()      => api("GET",    "/productos"),
+  crearProducto:    (datos) => api("POST",   "/productos", datos),
+  eliminarProducto: (id)    => api("DELETE", `/productos/${id}`),
+  listarUsuarios:   ()      => api("GET",    "/usuarios"),
+  // La clave de administrador viaja en la cabecera HTTP X-Admin-Token
+  crearUsuario:     (datos, claveAdmin) =>
+                      api("POST", "/usuarios", datos, claveAdmin ? { "X-Admin-Token": claveAdmin } : {}),
+  crearPedido:      (datos) => api("POST",   "/pedidos", datos),
+  pedidosDeUsuario: (id)    => api("GET",    `/usuarios/${id}/pedidos`),
+};
+
+/* =====================================================================
+   2. ESTADO Y UTILIDADES DE LA INTERFAZ
+   ===================================================================== */
+let productos = [];
+let usuarios = [];
+
+const $ = (id) => document.getElementById(id);
+const euros = (n) => n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function aviso(texto, tipo = "") {
+  const t = $("toast");
+  t.textContent = texto;
+  t.className = "visible " + tipo;
+  clearTimeout(aviso.timer);
+  aviso.timer = setTimeout(() => (t.className = ""), 3500);
+}
+
+function marcarEstado(ok, texto) {
+  $("estado").className = "estado " + (ok ? "ok" : "error");
+  $("estadoTxt").textContent = texto;
+}
+
+/* =====================================================================
+   3. PRODUCTOS
+   ===================================================================== */
+async function cargarProductos() {
+  productos = await Tienda.listarProductos();           // GET /productos
+  const tbody = $("tablaProductos");
+  if (productos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="vacio">No hay productos.</td></tr>`;
+  } else {
+    tbody.innerHTML = productos.map(p => {
+      let detalle = "—";
+      if (p.tipo === "electronico") detalle = `Garantía ${p.meses_garantia} meses`;
+      if (p.tipo === "ropa") detalle = `Talla ${esc(p.talla)} · ${esc(p.color)}`;
+      return `<tr>
+        <td>${esc(p.nombre)}</td>
+        <td><span class="chip">${p.tipo}</span></td>
+        <td class="extra">${detalle}</td>
+        <td class="num">${euros(p.precio)}</td>
+        <td class="num">${p.stock}</td>
+        <td class="num"><button class="peligro" data-borrar="${p.id}">Eliminar</button></td>
+      </tr>`;
+    }).join("");
+  }
+  refrescarSelectsProducto();
+}
+
+$("tablaProductos").addEventListener("click", async (e) => {
+  const id = e.target.dataset.borrar;
+  if (!id) return;
+  try {
+    await Tienda.eliminarProducto(id);                  // DELETE /productos/{id}
+    aviso("Producto eliminado", "ok");
+    await cargarProductos();
+  } catch (err) { aviso(err.message, "error"); }
+});
+
+// Mostrar solo los campos extra del tipo seleccionado
+$("tipoProducto").addEventListener("change", (e) => {
+  const tipo = e.target.value;
+  document.querySelectorAll(".solo-electronico").forEach(el => el.hidden = tipo !== "electronico");
+  document.querySelectorAll(".solo-ropa").forEach(el => el.hidden = tipo !== "ropa");
+});
+
+$("formProducto").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const datos = {
+    tipo: f.get("tipo"),
+    nombre: f.get("nombre"),
+    precio: parseFloat(f.get("precio")),
+    stock: parseInt(f.get("stock"), 10),
+  };
+  if (datos.tipo === "electronico") datos.meses_garantia = parseInt(f.get("meses_garantia") || "0", 10);
+  if (datos.tipo === "ropa") { datos.talla = f.get("talla"); datos.color = f.get("color"); }
+
+  try {
+    const creado = await Tienda.crearProducto(datos);   // POST /productos
+    aviso(`Producto "${creado.nombre}" creado`, "ok");
+    e.target.reset();
+    $("tipoProducto").dispatchEvent(new Event("change"));
+    await cargarProductos();
+  } catch (err) { aviso(err.message, "error"); }
+});
+
+/* =====================================================================
+   4. USUARIOS
+   ===================================================================== */
+async function cargarUsuarios() {
+  usuarios = await Tienda.listarUsuarios();             // GET /usuarios
+  $("tablaUsuarios").innerHTML = usuarios.length === 0
+    ? `<tr><td colspan="3" class="vacio">No hay usuarios.</td></tr>`
+    : usuarios.map(u => `<tr>
+        <td>${esc(u.nombre)}</td>
+        <td class="extra">${esc(u.email)}</td>
+        <td><span class="chip ${u.es_admin ? "admin" : ""}">${u.es_admin ? "admin" : "cliente"}</span></td>
+      </tr>`).join("");
+
+  // Solo los clientes pueden hacer pedidos
+  const clientes = usuarios.filter(u => !u.es_admin);
+  rellenarSelect($("pedidoCliente"), clientes, "Elige un cliente");
+  rellenarSelect($("consultaUsuario"), usuarios, "Elige un usuario");
+}
+
+function rellenarSelect(select, lista, textoVacio) {
+  const actual = select.value;
+  select.innerHTML = `<option value="">${textoVacio}</option>` +
+    lista.map(u => `<option value="${u.id}">${esc(u.nombre)} (${esc(u.email)})</option>`).join("");
+  if (lista.some(u => u.id === actual)) select.value = actual;
+}
+
+$("tipoUsuario").addEventListener("change", (e) => {
+  $("campoDireccion").hidden = e.target.value !== "cliente";
+  $("campoClaveAdmin").hidden = e.target.value !== "administrador";
+});
+
+$("formUsuario").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const datos = { nombre: f.get("nombre"), email: f.get("email"), tipo: f.get("tipo") };
+  if (datos.tipo === "cliente") datos.direccion_postal = f.get("direccion_postal");
+  const claveAdmin = datos.tipo === "administrador" ? f.get("clave_admin") : null;
+  try {
+    const creado = await Tienda.crearUsuario(datos, claveAdmin);   // POST /usuarios
+    aviso(`Usuario "${creado.nombre}" creado`, "ok");
+    e.target.reset();
+    $("campoDireccion").hidden = false;
+    $("campoClaveAdmin").hidden = true;
+    await cargarUsuarios();
+  } catch (err) { aviso(err.message, "error"); }
+});
+
+/* =====================================================================
+   5. NUEVO PEDIDO
+   ===================================================================== */
+function opcionesProducto() {
+  return `<option value="">Producto…</option>` + productos.map(p =>
+    `<option value="${p.id}" ${p.stock === 0 ? "disabled" : ""}>${esc(p.nombre)} · ${euros(p.precio)} (stock ${p.stock})</option>`
+  ).join("");
+}
+
+function anadirLinea() {
+  const div = document.createElement("div");
+  div.className = "linea";
+  div.innerHTML = `
+    <select class="l-producto">${opcionesProducto()}</select>
+    <input class="l-cantidad" type="number" min="1" value="1">
+    <button type="button" class="peligro" title="Quitar">✕</button>`;
+  div.querySelector("button").onclick = () => { div.remove(); calcularTotal(); };
+  div.addEventListener("input", calcularTotal);
+  $("lineasPedido").appendChild(div);
+}
+
+function refrescarSelectsProducto() {
+  document.querySelectorAll(".l-producto").forEach(sel => {
+    const actual = sel.value;
+    sel.innerHTML = opcionesProducto();
+    if (productos.some(p => p.id === actual)) sel.value = actual;
+  });
+  calcularTotal();
+}
+
+function leerLineas() {
+  return [...document.querySelectorAll(".linea")]
+    .map(l => ({ producto_id: l.querySelector(".l-producto").value,
+                 cantidad: parseInt(l.querySelector(".l-cantidad").value, 10) }))
+    .filter(l => l.producto_id && l.cantidad > 0);
+}
+
+function calcularTotal() {
+  const total = leerLineas().reduce((suma, l) => {
+    const p = productos.find(x => x.id === l.producto_id);
+    return suma + (p ? p.precio * l.cantidad : 0);
+  }, 0);
+  $("totalPedido").textContent = "Total: " + euros(total);
+}
+
+$("btnAnadirLinea").addEventListener("click", anadirLinea);
+
+$("formPedido").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const datos = { cliente_id: $("pedidoCliente").value, items: leerLineas() };
+  if (!datos.cliente_id) return aviso("Elige un cliente", "error");
+  if (datos.items.length === 0) return aviso("Añade al menos un producto", "error");
+  try {
+    const pedido = await Tienda.crearPedido(datos);     // POST /pedidos
+    aviso(`Pedido creado · ${euros(pedido.total)}`, "ok");
+    $("lineasPedido").innerHTML = "";
+    anadirLinea();
+    await cargarProductos();                            // el stock ha cambiado
+    // Mostrar directamente los pedidos de ese cliente
+    $("consultaUsuario").value = datos.cliente_id;
+    await cargarPedidos(datos.cliente_id);
+  } catch (err) { aviso(err.message, "error"); }
+});
+
+/* =====================================================================
+   6. PEDIDOS DE UN USUARIO
+   ===================================================================== */
+async function cargarPedidos(usuarioId) {
+  const cont = $("listaPedidos");
+  if (!usuarioId) { cont.innerHTML = `<p class="vacio">Selecciona un usuario.</p>`; return; }
+  try {
+    const pedidos = await Tienda.pedidosDeUsuario(usuarioId);   // GET /usuarios/{id}/pedidos
+    if (pedidos.length === 0) { cont.innerHTML = `<p class="vacio">Este usuario no tiene pedidos.</p>`; return; }
+    cont.innerHTML = pedidos.map(p => `
+      <div class="pedido">
+        <div class="pedido-cab">
+          <strong>Pedido ${p.id.slice(0, 8)}</strong>
+          <span class="extra">${new Date(p.fecha).toLocaleString("es-ES")}</span>
+          <strong>${euros(p.total)}</strong>
+        </div>
+        <ul>${p.items.map(i => `<li>${esc(i.nombre)} × ${i.cantidad} — ${euros(i.subtotal)}</li>`).join("")}</ul>
+      </div>`).join("");
+  } catch (err) { aviso(err.message, "error"); }
+}
+
+$("consultaUsuario").addEventListener("change", (e) => cargarPedidos(e.target.value));
+
+/* =====================================================================
+   7. ARRANQUE / CAMBIO DE SERVIDOR
+   ===================================================================== */
+async function conectar() {
+  BASE_URL = $("baseUrl").value.trim().replace(/\/+$/, "");
+  try { localStorage.setItem("baseUrl", BASE_URL); } catch (_) {}
+  try {
+    await Promise.all([cargarProductos(), cargarUsuarios()]);
+    marcarEstado(true, "Conectado");
+    await cargarPedidos($("consultaUsuario").value);
+  } catch (err) {
+    marcarEstado(false, "Sin conexión");
+    aviso(err.message, "error");
+  }
+}
+
+$("btnConectar").addEventListener("click", conectar);
+$("baseUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") conectar(); });
+
+$("baseUrl").value = BASE_URL;
+anadirLinea();
+conectar();
+</script>
+</body>
+</html>
